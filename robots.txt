@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://kabergstrom.github.io/sitemap.xml
