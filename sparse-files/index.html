@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+    <!-- Enable responsiveness on mobile devices-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+    <title> - Sparse Files &amp; SQLite</title>
+
+    
+
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/slideout/1.0.1/slideout.min.js"></script>
+    
+    
+
+    
+<link rel="stylesheet" href="https:&#x2F;&#x2F;kabergstrom.github.io&#x2F;site.css">
+<link rel="stylesheet" href="https:&#x2F;&#x2F;kabergstrom.github.io&#x2F;custom.css">
+
+
+    
+    
+</head>
+
+<body>
+    <div class="container">
+
+        <div id="mobile-navbar" class="mobile-navbar">
+            <div class="mobile-header-logo">
+                <a href="/" class="logo">crumbs</a>
+            </div>
+            <div class="mobile-navbar-icon icon-out">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+
+        <nav id="mobile-menu" class="mobile-menu slideout-menu slideout-menu-left">
+            <ul class="mobile-menu-list">
+                
+            </ul>
+        </nav>
+
+        <header id="header">
+            <div class="logo"><a href="https:&#x2F;&#x2F;kabergstrom.github.io">crumbs</a></div>
+            <nav class="menu">
+                <ul>
+                    
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <div class="content" id="mobile-panel">
+                
+
+
+
+<article class="post">
+    
+    <header class="post__header">
+        <h1 class="post__title">
+            <a href="https:&#x2F;&#x2F;kabergstrom.github.io&#x2F;sparse-files&#x2F;">Sparse Files &amp; SQLite</a>
+        </h1>
+        <div class="post__meta">
+            <span class="post__time">2022-04-02</span>
+            
+        </div>
+    </header>
+
+    <div class="post-content">
+      <p>I've been thinking about how to manage asset artifacts for gamedev a bunch. It's a lot of data, and many humans are impatient. </p>
+<p>I used LMDB for both metadata and artifacts in one attempt. I think there are two fatal issues that make me want to replace it. First, LMDB does not offer indexes, and it turns out asset metadata wants a bunch of those. Ends up being a ton of complicated code to hack on index-like features. Second, not many people are familiar with LMDB, or plain key-value stores in general.</p>
+<p>I think SQLite seems all right for storing metadata. I did some tests with the mmap support, and with the right locking modes to reduce syscalls, it seems like it can offer really fast reads of small values. </p>
+<p>SQLite's statement APIs assume column values are linear in memory though, so when reading a row value larger than the page size, the value gets copied into a &quot;result set&quot; buffer before being accessible to the application. I figure that's an issue when reading large values like asset artifacts.</p>
+<p>So I thought all right, let's store asset artifacts in something else. <code>mmap</code> is super nice on user workstations because it allows to use the kernel's caching mechanism instead of application-managed caching. Can cache as much disk stuff as there's unused memory.</p>
+<p>I thought about using just files. One file per asset artifact. Content-addressed, of course. But filesystems are poor databases, and the data structures used for looking up files in folders in order to open a file handle are not optimized for huge numbers. I figured it'd make sense to just do something like a heap allocator but disk-backed.</p>
+<p>Create a few GB-sized files. Allocate space in a file for an artifact, write the artifact, fsync, then write the file range mapping to the SQLite database. Files always have problems though. This is no different, need to handle: </p>
+<ul>
+<li>Obsolete artifacts. Garbage collection based on active references in the SQLite metadata.</li>
+<li>Failed writes, where there's no entry in the SQLite database for a range in the file.</li>
+<li>Detection of data corruption</li>
+</ul>
+<p>Seems like it'd work. Sparse files would allow to free up disk space from removed artifacts. There are OS APIs for finding &quot;holes&quot; in a file, but I'm not sure it'll be any better than just allocating based on the tracked artifact ranges in the database.</p>
+<p>Allocation of a range in a file would be sequential, but the writing of the artifact data can be parallel. Reading would also be maximally parallel. </p>
+<p>Frostbite did a thing with splitting artifacts into fixed-size chunks, which are content addressed, to get some deduplication. </p>
+
+    </div>
+
+    
+    
+
+    <div class="post-footer">
+        
+            
+            
+                <div class="post-nav">
+                    
+                        <a class="previous" href="https:&#x2F;&#x2F;kabergstrom.github.io&#x2F;struggle&#x2F;">‹ Struggle</a>
+                    
+                    
+                    
+                    
+                </div>
+            
+
+        
+
+    </div>
+
+    
+    
+</article>
+
+
+            </div>
+        </main>
+
+        
+        
+    </div>
+
+    
+    <script type="text/javascript" src="https:&#x2F;&#x2F;kabergstrom.github.io&#x2F;even.js"></script>
+    
+</body>
+
+</html>
